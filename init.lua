@@ -110,6 +110,11 @@ vim.o.mouse = 'a'
 -- Don't show the mode, since it's already in the status line
 vim.o.showmode = false
 
+vim.opt.expandtab = true
+vim.opt.shiftwidth = 4 -- Indent size when using >>
+vim.opt.tabstop = 4 -- Number of spaces per tab
+vim.opt.softtabstop = 4 -- Number of spaces for editing (e.g. <BS> feels like a tab)
+
 -- Sync clipboard between OS and Neovim.
 --  Schedule the setting after `UiEnter` because it can increase startup-time.
 --  Remove this option if you want your OS clipboard to remain independent.
@@ -185,10 +190,8 @@ vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagn
 vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode' })
 
 -- Keybinds to make split navigation easier.
---  Use CTRL+<hjkl> to switch between windows
---
 --  See `:help wincmd` for a list of all window commands
-vim.keymap.set('n', '<C-k>', '<C-w><C-w>', { desc = 'Move focus to the left window' })
+vim.keymap.set('n', '<C-k>', '<C-w><C-w>', { desc = 'Move focus to the next window' })
 
 -- [[ Basic Autocommands ]]
 --  See `:help lua-guide-autocommands`
@@ -444,6 +447,11 @@ require('lazy').setup({
       vim.keymap.set('n', '<leader>sn', function()
         builtin.find_files { cwd = vim.fn.stdpath 'config' }
       end, { desc = '[S]earch [N]eovim files' })
+
+      -- Shortcut for searching your config files
+      vim.keymap.set('n', '<leader>sc', function()
+        builtin.find_files { cwd = '~/', hidden = true, find_command = { 'find', '.bashrc' } }
+      end, { desc = '[S]earch [C]onfig files' })
     end,
   },
 
@@ -656,7 +664,10 @@ require('lazy').setup({
       --  - settings (table): Override the default settings passed when initializing the server.
       --        For example, to see the options for `lua_ls`, you could go to: https://luals.github.io/wiki/settings/
       local servers = {
-        clangd = {},
+        -- clangd = {
+        --   cmd = { 'clangd', '--clang-tidy=false' },
+        -- },
+        bashls = {},
         -- gopls = {},
         basedpyright = {},
         -- rust_analyzer = {},
