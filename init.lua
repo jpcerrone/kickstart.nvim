@@ -206,6 +206,18 @@ vim.api.nvim_create_autocmd('TextYankPost', {
     vim.hl.on_yank()
   end,
 })
+-- Save and load folds automatically
+vim.api.nvim_create_augroup('remember_folds', { clear = true })
+vim.api.nvim_create_autocmd('BufWinLeave', {
+  group = 'remember_folds',
+  pattern = '*',
+  command = 'silent! mkview',
+})
+vim.api.nvim_create_autocmd('BufWinEnter', {
+  group = 'remember_folds',
+  pattern = '*',
+  command = 'silent! loadview',
+})
 
 -- [[ Install `lazy.nvim` plugin manager ]]
 --    See `:help lazy.nvim.txt` or https://github.com/folke/lazy.nvim for more info
@@ -937,7 +949,7 @@ require('lazy').setup({
       -- cursor location to LINE:COLUMN
       ---@diagnostic disable-next-line: duplicate-set-field
       statusline.section_location = function()
-        return '%2l:%-2v'
+        return string.format('%d%%%%', vim.fn.line '.' * 100 / vim.fn.line '$')
       end
 
       -- ... and there is more!
