@@ -181,6 +181,29 @@ vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
 -- Diagnostic keymaps
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
 
+-- Toggle between .c and .h files with same basename
+vim.keymap.set('n', '<leader>ch', function()
+  local file = vim.fn.expand '%:t:r' -- basename without extension
+  local dir = vim.fn.expand '%:p:h' -- directory path
+  local ext = vim.fn.expand '%:e' -- current extension
+
+  local target
+  if ext == 'c' then
+    target = dir .. '/' .. file .. '.h'
+  elseif ext == 'h' then
+    target = dir .. '/' .. file .. '.c'
+  else
+    print 'Not a .c or .h file'
+    return
+  end
+
+  if vim.fn.filereadable(target) == 1 then
+    vim.cmd('edit ' .. target)
+  else
+    print('No matching file: ' .. target)
+  end
+end, { desc = 'Switch between .c and .h' })
+
 -- Exit terminal mode in the builtin terminal with a shortcut that is a bit easier
 -- for people to discover. Otherwise, you normally need to press <C-\><C-n>, which
 -- is not what someone will guess without a bit more experience.
