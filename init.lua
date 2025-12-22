@@ -102,7 +102,7 @@ vim.g.have_nerd_font = false
 vim.o.number = true
 -- You can also add relative line numbers, to help with jumping.
 --  Experiment for yourself to see if you like it!
-vim.o.relativenumber = true
+vim.o.relativenumber = false
 
 -- Enable mouse mode, can be useful for resizing splits for example!
 vim.o.mouse = 'a'
@@ -123,6 +123,55 @@ vim.schedule(function()
   vim.o.clipboard = 'unnamedplus'
 end)
 
+-- Copy over ssh
+if vim.env.SSH_TTY then
+  local osc52 = require 'vim.ui.clipboard.osc52'
+
+  local function copy_reg(reg)
+    local orig = osc52.copy(reg)
+    return function(lines, regtype)
+      -- Write to Vim's internal register
+      vim.fn.setreg(reg, table.concat(lines, '\n'), regtype)
+
+      -- Send OSC52 to local clipboard
+      orig(lines, regtype)
+    end
+  end
+
+  vim.g.clipboard = {
+    name = 'OSC 52 with register sync',
+    copy = {
+      ['+'] = copy_reg '+',
+      ['*'] = copy_reg '*',
+    },
+    -- Do NOT use OSC52 paste, just use internal registers
+    paste = {
+      ['+'] = function()
+        return vim.fn.getreg '+', 'v'
+      end,
+      ['*'] = function()
+        return vim.fn.getreg '*', 'v'
+      end,
+    },
+  }
+
+  vim.o.clipboard = 'unnamedplus'
+elseif vim.env.TMUX ~= nil then
+  local copy = { 'tmux', 'load-buffer', '-w', '-' }
+  local paste = { 'bash', '-c', 'tmux refresh-client -l && sleep 0.05 && tmux save-buffer -' }
+  vim.g.clipboard = {
+    name = 'tmux',
+    copy = {
+      ['+'] = copy,
+      ['*'] = copy,
+    },
+    paste = {
+      ['+'] = paste,
+      ['*'] = paste,
+    },
+    cache_enabled = 0,
+  }
+end
 -- Enable break indent
 vim.o.breakindent = true
 
@@ -170,6 +219,9 @@ vim.o.scrolloff = 10
 -- instead raise a dialog asking if you wish to save the current file(s)
 -- See `:help 'confirm'`
 vim.o.confirm = true
+
+vim.lsp.enable { 'lua_ls' }
+vim.lsp.enable { 'clangd' }
 
 -- [[ Basic Keymaps ]]
 --  See `:help vim.keymap.set()`
@@ -242,6 +294,37 @@ vim.api.nvim_create_autocmd('BufWinEnter', {
   command = 'silent! loadview',
 })
 
+-- Auto-set working directory to the project root or current file
+vim.api.nvim_create_autocmd('BufEnter', {
+  desc = "Auto change cwd to project root or current file's folder",
+  group = vim.api.nvim_create_augroup('auto_project_root', { clear = true }),
+  callback = function()
+    -- Skip special buffers
+    if vim.bo.filetype == '' or vim.bo.buftype ~= '' then
+      return
+    end
+
+    local buf_path = vim.fn.expand '%:p:h'
+    if buf_path == '' then
+      return
+    end
+
+    -- Try to find Git root
+    local git_root = vim.fn.systemlist('git -C ' .. vim.fn.shellescape(buf_path) .. ' rev-parse --show-toplevel')[1]
+    local cwd = nil
+
+    if git_root and vim.fn.isdirectory(git_root) == 1 then
+      cwd = git_root
+    else
+      cwd = buf_path
+    end
+
+    -- Only change if different (prevents flicker)
+    if cwd and cwd ~= vim.fn.getcwd() then
+      vim.cmd.tcd(cwd)
+    end
+  end,
+})
 -- [[ Install `lazy.nvim` plugin manager ]]
 --    See `:help lazy.nvim.txt` or https://github.com/folke/lazy.nvim for more info
 local lazypath = vim.fn.stdpath 'data' .. '/lazy/lazy.nvim'
@@ -272,21 +355,21 @@ require('lazy').setup({
   -- NOTE: Plugins can be added with a link (or for a github repo: 'owner/repo' link).
   'NMAC427/guess-indent.nvim', -- Detect tabstop and shiftwidth automatically
 
-  -- GitHub Copilot
-  {
-    'github/copilot.vim',
-    config = function()
-      -- Accept suggestion with Tab
-      vim.g.copilot_no_tab_map = true
-      vim.keymap.set('i', '<C-J>', 'copilot#Accept("\\<CR>")', {
-        expr = true,
-        replace_keycodes = false,
-      })
-      -- Next/previous suggestions
-      vim.keymap.set('i', '<C-]>', '<Plug>(copilot-next)')
-      vim.keymap.set('i', '<C-[>', '<Plug>(copilot-previous)')
-    end,
-  },
+  -- -- GitHub Copilot
+  -- {
+  --   'github/copilot.vim',
+  --   config = function()
+  --     -- Accept suggestion with Tab
+  --     vim.g.copilot_no_tab_map = true
+  --     vim.keymap.set('i', '<C-J>', 'copilot#Accept("\\<CR>")', {
+  --       expr = true,
+  --       replace_keycodes = false,
+  --     })
+  --     -- Next/previous suggestions
+  --     vim.keymap.set('i', '<C-]>', '<Plug>(copilot-next)')
+  --     vim.keymap.set('i', '<C-[>', '<Plug>(copilot-previous)')
+  --   end,
+  -- },
 
   -- NOTE: Plugins can also be added by using a table,
   -- with the first argument being the link and the following
@@ -468,7 +551,11 @@ require('lazy').setup({
       vim.keymap.set('n', '<leader>sh', builtin.help_tags, { desc = '[S]earch [H]elp' })
       vim.keymap.set('n', '<leader>sk', builtin.keymaps, { desc = '[S]earch [K]eymaps' })
       vim.keymap.set('n', '<leader>ss', builtin.builtin, { desc = '[S]earch [S]elect Telescope' })
+
+      vim.keymap.set('n', '<leader>gs', builtin.git_status, { desc = '[G]it [S]tatus' })
+
       vim.keymap.set('n', '<leader>sw', builtin.grep_string, { desc = '[S]earch current [W]ord' })
+
       vim.keymap.set('n', '<leader>sd', builtin.diagnostics, { desc = '[S]earch [D]iagnostics' })
       vim.keymap.set('n', '<leader>sr', builtin.resume, { desc = '[S]earch [R]esume' })
       vim.keymap.set('n', '<leader>s.', builtin.oldfiles, { desc = '[S]earch Recent Files ("." for repeat)' })
@@ -479,6 +566,7 @@ require('lazy').setup({
           additional_args = function()
             return { '--hidden' }
           end,
+          -- glob_pattern = '!src/unit_tests/**',
         }
       end, { desc = '[S]earch by [G]rep (including hidden)' })
 
@@ -517,20 +605,20 @@ require('lazy').setup({
   },
 
   -- LSP Plugins
+  -- {
+  --   -- `lazydev` configures Lua LSP for your Neovim config, runtime and plugins
+  --   -- used for completion, annotations and signatures of Neovim apis
+  --   'folke/lazydev.nvim',
+  --   ft = 'lua',
+  --   opts = {
+  --     library = {
+  --       -- Load luvit types when the `vim.uv` word is found
+  --       { path = '${3rd}/luv/library', words = { 'vim%.uv' } },
+  --     },
+  --   },
+  -- },
   {
-    -- `lazydev` configures Lua LSP for your Neovim config, runtime and plugins
-    -- used for completion, annotations and signatures of Neovim apis
-    'folke/lazydev.nvim',
-    ft = 'lua',
-    opts = {
-      library = {
-        -- Load luvit types when the `vim.uv` word is found
-        { path = '${3rd}/luv/library', words = { 'vim%.uv' } },
-      },
-    },
-  },
-  {
-    -- Main LSP Configuration
+    --   -- Main LSP Configuration
     'neovim/nvim-lspconfig',
     dependencies = {
       -- Automatically install LSPs and related tools to stdpath for Neovim
@@ -547,35 +635,10 @@ require('lazy').setup({
       'saghen/blink.cmp',
     },
     config = function()
-      -- Brief aside: **What is LSP?**
-      --
-      -- LSP is an initialism you've probably heard, but might not understand what it is.
-      --
-      -- LSP stands for Language Server Protocol. It's a protocol that helps editors
-      -- and language tooling communicate in a standardized fashion.
-      --
-      -- In general, you have a "server" which is some tool built to understand a particular
-      -- language (such as `gopls`, `lua_ls`, `rust_analyzer`, etc.). These Language Servers
-      -- (sometimes called LSP servers, but that's kind of like ATM Machine) are standalone
-      -- processes that communicate with some "client" - in this case, Neovim!
-      --
-      -- LSP provides Neovim with features like:
-      --  - Go to definition
-      --  - Find references
-      --  - Autocompletion
-      --  - Symbol Search
-      --  - and more!
-      --
-      -- Thus, Language Servers are external tools that must be installed separately from
-      -- Neovim. This is where `mason` and related plugins come into play.
-      --
-      -- If you're wondering about lsp vs treesitter, you can check out the wonderfully
-      -- and elegantly composed help section, `:help lsp-vs-treesitter`
-
-      --  This function gets run when an LSP attaches to a particular buffer.
-      --    That is to say, every time a new file is opened that is associated with
-      --    an lsp (for example, opening `main.rs` is associated with `rust_analyzer`) this
-      --    function will be executed to configure the current buffer
+      --     --  This function gets run when an LSP attaches to a particular buffer.
+      --     --    That is to say, every time a new file is opened that is associated with
+      --     --    an lsp (for example, opening `main.rs` is associated with `rust_analyzer`) this
+      --     --    function will be executed to configure the current buffer
       vim.api.nvim_create_autocmd('LspAttach', {
         group = vim.api.nvim_create_augroup('kickstart-lsp-attach', { clear = true }),
         callback = function(event)
@@ -625,7 +688,7 @@ require('lazy').setup({
           --  Useful when you're not sure what type a variable is and you want to see
           --  the definition of its *type*, not where it was *defined*.
           map('grt', require('telescope.builtin').lsp_type_definitions, '[G]oto [T]ype Definition')
-
+          --
           -- This function resolves a difference between neovim nightly (version 0.11) and stable (version 0.10)
           ---@param client vim.lsp.Client
           ---@param method vim.lsp.protocol.Method
@@ -684,7 +747,7 @@ require('lazy').setup({
       -- See :help vim.diagnostic.Opts
       vim.diagnostic.config {
         severity_sort = true,
-        float = { border = 'rounded', source = 'if_many' },
+        -- float = { border = 'rounded', source = 'if_many' },
         underline = { severity = vim.diagnostic.severity.ERROR },
         signs = vim.g.have_nerd_font and {
           text = {
@@ -696,6 +759,7 @@ require('lazy').setup({
         } or {},
         virtual_text = {
           source = 'if_many',
+          current_line = true,
           spacing = 2,
           format = function(diagnostic)
             local diagnostic_message = {
@@ -724,46 +788,59 @@ require('lazy').setup({
       --  - capabilities (table): Override fields in capabilities. Can be used to disable certain LSP features.
       --  - settings (table): Override the default settings passed when initializing the server.
       --        For example, to see the options for `lua_ls`, you could go to: https://luals.github.io/wiki/settings/
-      local servers = {
-        -- clangd = {
-        --   cmd = { 'clangd', '--clang-tidy=false' },
-        -- },
-        bashls = {},
-        -- gopls = {},
-        basedpyright = {
-          settings = {
-            python = {
-              analysis = {
-                typeCheckingMode = 'off', -- "off", "basic", or "strict"
-              },
-            },
-          },
-        },
-        -- rust_analyzer = {},
-        -- ... etc. See `:help lspconfig-all` for a list of all the pre-configured LSPs
-        --
-        -- Some languages (like typescript) have entire language plugins that can be useful:
-        --    https://github.com/pmizio/typescript-tools.nvim
-        --
-        -- But for many setups, the LSP (`ts_ls`) will work just fine
-        -- ts_ls = {},
-        --
-
-        lua_ls = {
-          -- cmd = { ... },
-          -- filetypes = { ... },
-          -- capabilities = {},
-          settings = {
-            Lua = {
-              completion = {
-                callSnippet = 'Replace',
-              },
-              -- You can toggle below to ignore Lua_LS's noisy `missing-fields` warnings
-              -- diagnostics = { disable = { 'missing-fields' } },
-            },
-          },
-        },
-      }
+      -- local servers = {
+      --   clangd = {
+      --     cmd = {
+      --       'clangd',
+      --       '--background-index',
+      --       --'--clang-tidy',
+      --       '--header-insertion=iwyu',
+      --       '--completion-style=detailed',
+      --       '--function-arg-placeholders',
+      --       '--fallback-style=llvm',
+      --       '-DWIN32',
+      --     },
+      --     filetypes = { 'c', 'cpp', 'objc', 'objcpp', 'cuda' },
+      --     root_dir = function(fname)
+      --       return require('lspconfig.util').root_pattern('compile_commands.json', 'compile_flags.txt', '.git')(fname)
+      --     end,
+      --   },
+      --   bashls = {},
+      --   -- gopls = {},
+      --   basedpyright = {
+      --     settings = {
+      --       python = {
+      --         analysis = {
+      --           typeCheckingMode = 'off', -- "off", "basic", or "strict"
+      --         },
+      --       },
+      --     },
+      --   },
+      --   -- rust_analyzer = {},
+      --   -- ... etc. See `:help lspconfig-all` for a list of all the pre-configured LSPs
+      --   --
+      --   -- Some languages (like typescript) have entire language plugins that can be useful:
+      --   --    https://github.com/pmizio/typescript-tools.nvim
+      --   --
+      --   -- But for many setups, the LSP (`ts_ls`) will work just fine
+      --   -- ts_ls = {},
+      --   --
+      --
+      --   lua_ls = {
+      --     -- cmd = { ... },
+      --     -- filetypes = { ... },
+      --     -- capabilities = {},
+      --     settings = {
+      --       Lua = {
+      --         completion = {
+      --           callSnippet = 'Replace',
+      --         },
+      --         -- You can toggle below to ignore Lua_LS's noisy `missing-fields` warnings
+      --         -- diagnostics = { disable = { 'missing-fields' } },
+      --       },
+      --     },
+      --   },
+      -- }
 
       -- Ensure the servers and tools above are installed
       --
@@ -778,26 +855,26 @@ require('lazy').setup({
       --
       -- You can add other tools here that you want Mason to install
       -- for you, so that they are available from within Neovim.
-      local ensure_installed = vim.tbl_keys(servers or {})
-      vim.list_extend(ensure_installed, {
-        'stylua', -- Used to format Lua code
-      })
-      require('mason-tool-installer').setup { ensure_installed = ensure_installed }
-
-      require('mason-lspconfig').setup {
-        ensure_installed = {}, -- explicitly set to an empty table (Kickstart populates installs via mason-tool-installer)
-        automatic_installation = false,
-        handlers = {
-          function(server_name)
-            local server = servers[server_name] or {}
-            -- This handles overriding only values explicitly passed
-            -- by the server configuration above. Useful when disabling
-            -- certain features of an LSP (for example, turning off formatting for ts_ls)
-            server.capabilities = vim.tbl_deep_extend('force', {}, capabilities, server.capabilities or {})
-            require('lspconfig')[server_name].setup(server)
-          end,
-        },
-      }
+      -- local ensure_installed = vim.tbl_keys(servers or {})
+      -- vim.list_extend(ensure_installed, {
+      --   'stylua', -- Used to format Lua code
+      -- })
+      -- require('mason-tool-installer').setup { ensure_installed = ensure_installed }
+      --
+      -- require('mason-lspconfig').setup {
+      --   ensure_installed = {}, -- explicitly set to an empty table (Kickstart populates installs via mason-tool-installer)
+      --   automatic_installation = false,
+      --   handlers = {
+      --     function(server_name)
+      --       local server = servers[server_name] or {}
+      --       -- This handles overriding only values explicitly passed
+      --       -- by the server configuration above. Useful when disabling
+      --       -- certain features of an LSP (for example, turning off formatting for ts_ls)
+      --       server.capabilities = vim.tbl_deep_extend('force', {}, capabilities, server.capabilities or {})
+      --       require('lspconfig')[server_name].setup(server)
+      --     end,
+      --   },
+      -- }
     end,
   },
 
@@ -987,17 +1064,17 @@ require('lazy').setup({
       -- Simple and easy statusline.
       --  You could remove this setup call if you don't like it,
       --  and try some other statusline plugin
-      local statusline = require 'mini.statusline'
-      -- set use_icons to true if you have a Nerd Font
-      statusline.setup { use_icons = vim.g.have_nerd_font }
-
-      -- You can configure sections in the statusline by overriding their
-      -- default behavior. For example, here we set the section for
-      -- cursor location to LINE:COLUMN
-      ---@diagnostic disable-next-line: duplicate-set-field
-      statusline.section_location = function()
-        return string.format('%d%%%%', vim.fn.line '.' * 100 / vim.fn.line '$')
-      end
+      -- local statusline = require 'mini.statusline'
+      -- -- set use_icons to true if you have a Nerd Font
+      -- statusline.setup { use_icons = vim.g.have_nerd_font }
+      --
+      -- -- You can configure sections in the statusline by overriding their
+      -- -- default behavior. For example, here we set the section for
+      -- -- cursor location to LINE:COLUMN
+      -- ---@diagnostic disable-next-line: duplicate-set-field
+      -- statusline.section_location = function()
+      --   return string.format('%d%%%%', vim.fn.line '.' * 100 / vim.fn.line '$')
+      -- end
 
       -- ... and there is more!
       --  Check out: https://github.com/echasnovski/mini.nvim
