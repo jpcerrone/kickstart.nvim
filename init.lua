@@ -300,7 +300,7 @@ vim.api.nvim_create_autocmd('BufEnter', {
   group = vim.api.nvim_create_augroup('auto_project_root', { clear = true }),
   callback = function()
     -- Skip special buffers
-    if vim.bo.filetype == '' or vim.bo.buftype ~= '' then
+    if vim.bo.filetype == '' or vim.bo.buftype ~= '' or vim.bo.filetype == 'oil' then
       return
     end
 
@@ -406,6 +406,24 @@ require('lazy').setup({
     },
   },
 
+  {
+    'stevearc/oil.nvim',
+    ---@module 'oil'
+    ---@type oil.SetupOpts
+    opts = {
+      columns = {
+        -- "icon",
+        -- "permissions",
+        -- "size",
+        -- "mtime",
+      },
+    },
+    -- Optional dependencies
+    -- dependencies = { { 'nvim-mini/mini.icons', opts = {} } },
+    -- dependencies = { "nvim-tree/nvim-web-devicons" }, -- use if you prefer nvim-web-devicons
+    -- Lazy loading is not recommended because it is very tricky to make it work correctly in all situations.
+    lazy = false,
+  },
   -- NOTE: Plugins can also be configured to run Lua code when they are loaded.
   --
   -- This is often very useful to both group configuration, as well as handle
@@ -419,7 +437,6 @@ require('lazy').setup({
   --
   -- Then, because we use the `opts` key (recommended), the configuration runs
   -- after the plugin has been loaded as `require(MODULE).setup(opts)`.
-
   -- { -- Useful plugin to show you pending keybinds.
   --   'folke/which-key.nvim',
   --   event = 'VimEnter', -- Sets the loading event to 'VimEnter'
@@ -472,14 +489,12 @@ require('lazy').setup({
   --     },
   --   },
   -- },
-
   -- NOTE: Plugins can specify dependencies.
   --
   -- The dependencies are proper plugin specifications as well - anything
   -- you do for a plugin at the top level, you can do for a dependency.
   --
   -- Use the `dependencies` key to specify the dependencies of a particular plugin
-
   { -- Fuzzy Finder (files, lsp, etc)
     'nvim-telescope/telescope.nvim',
     event = 'VimEnter',
