@@ -144,5 +144,51 @@ return {
         detached = vim.fn.has 'win32' == 0,
       },
     }
+
+    -- GDB configuration for C/C++
+    dap.adapters.gdb = {
+      type = 'executable',
+      command = 'gdb',
+      args = { '-i', 'dap' },
+    }
+
+    dap.adapters.gdb_sudo = {
+      type = 'executable',
+      command = 'sudo',
+      args = { 'gdb', '-i', 'dap' },
+    }
+
+    dap.configurations.c = {
+      {
+        name = 'Launch',
+        type = 'gdb',
+        request = 'launch',
+        program = function()
+          return vim.fn.input('Path to executable: ', vim.fn.getcwd() .. '/', 'file')
+        end,
+        cwd = '${workspaceFolder}',
+        stopAtBeginningOfMainSubprogram = false,
+      },
+      {
+        name = 'Launch with sudo',
+        type = 'gdb_sudo',
+        request = 'launch',
+        program = function()
+          return vim.fn.input('Path to executable: ', vim.fn.getcwd() .. '/', 'file')
+        end,
+        cwd = '${workspaceFolder}',
+        stopAtBeginningOfMainSubprogram = false,
+        args = {},
+      },
+      {
+        name = 'Attach to process',
+        type = 'gdb',
+        request = 'attach',
+        processId = require('dap.utils').pick_process,
+      },
+    }
+
+    -- Use the same config for C++
+    dap.configurations.cpp = dap.configurations.c
   end,
 }

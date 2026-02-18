@@ -1,89 +1,3 @@
---[[
-
-=====================================================================
-==================== READ THIS BEFORE CONTINUING ====================
-=====================================================================
-========                                    .-----.          ========
-========         .----------------------.   | === |          ========
-========         |.-""""""""""""""""""-.|   |-----|          ========
-========         ||                    ||   | === |          ========
-========         ||   KICKSTART.NVIM   ||   |-----|          ========
-========         ||                    ||   | === |          ========
-========         ||                    ||   |-----|          ========
-========         ||:Tutor              ||   |:::::|          ========
-========         |'-..................-'|   |____o|          ========
-========         `"")----------------(""`   ___________      ========
-========        /::::::::::|  |::::::::::\  \ no mouse \     ========
-========       /:::========|  |==hjkl==:::\  \ required \    ========
-========      '""""""""""""'  '""""""""""""'  '""""""""""'   ========
-========                                                     ========
-=====================================================================
-=====================================================================
-
-What is Kickstart?
-
-  Kickstart.nvim is *not* a distribution.
-
-  Kickstart.nvim is a starting point for your own configuration.
-    The goal is that you can read every line of code, top-to-bottom, understand
-    what your configuration is doing, and modify it to suit your needs.
-
-    Once you've done that, you can start exploring, configuring and tinkering to
-    make Neovim your own! That might mean leaving Kickstart just the way it is for a while
-    or immediately breaking it into modular pieces. It's up to you!
-
-    If you don't know anything about Lua, I recommend taking some time to read through
-    a guide. One possible example which will only take 10-15 minutes:
-      - https://learnxinyminutes.com/docs/lua/
-
-    After understanding a bit more about Lua, you can use `:help lua-guide` as a
-    reference for how Neovim integrates Lua.
-    - :help lua-guide
-    - (or HTML version): https://neovim.io/doc/user/lua-guide.html
-
-Kickstart Guide:
-
-  TODO: The very first thing you should do is to run the command `:Tutor` in Neovim.
-
-    If you don't know what this means, type the following:
-      - <escape key>
-      - :
-      - Tutor
-      - <enter key>
-
-    (If you already know the Neovim basics, you can skip this step.)
-
-  Once you've completed that, you can continue working through **AND READING** the rest
-  of the kickstart init.lua.
-
-  Next, run AND READ `:help`.
-    This will open up a help window with some basic information
-    about reading, navigating and searching the builtin help documentation.
-
-    This should be the first place you go to look when you're stuck or confused
-    with something. It's one of my favorite Neovim features.
-
-    MOST IMPORTANTLY, we provide a keymap "<space>sh" to [s]earch the [h]elp documentation,
-    which is very useful when you're not exactly sure of what you're looking for.
-
-  I have left several `:help X` comments throughout the init.lua
-    These are hints about where to find more information about the relevant settings,
-    plugins or Neovim features used in Kickstart.
-
-   NOTE: Look for lines like this
-
-    Throughout the file. These are for you, the reader, to help you understand what is happening.
-    Feel free to delete them once you know what you're doing, but they should serve as a guide
-    for when you are first encountering a few different constructs in your Neovim config.
-
-If you experience any errors while trying to install kickstart, run `:checkhealth` for more info.
-
-I hope you enjoy your Neovim journey,
-- TJ
-
-P.S. You can delete this when you're done too. It's your config now! :)
---]]
-
 -- Set <space> as the leader key
 -- See `:help mapleader`
 --  NOTE: Must happen before plugins are loaded (otherwise wrong leader will be used)
@@ -101,7 +15,6 @@ vim.g.have_nerd_font = false
 -- Make line numbers default
 vim.o.number = true
 -- You can also add relative line numbers, to help with jumping.
---  Experiment for yourself to see if you like it!
 vim.o.relativenumber = false
 
 -- Enable mouse mode, can be useful for resizing splits for example!
@@ -226,12 +139,19 @@ vim.lsp.enable { 'clangd' }
 -- [[ Basic Keymaps ]]
 --  See `:help vim.keymap.set()`
 
+-- Disable Ctrl Z
+vim.keymap.set('n', '<C-z>', '<Nop>', { noremap = true, silent = true })
+vim.keymap.set('i', '<C-z>', '<Nop>', { noremap = true, silent = true })
+vim.keymap.set('v', '<C-z>', '<Nop>', { noremap = true, silent = true })
+
 -- Clear highlights on search when pressing <Esc> in normal mode
 --  See `:help hlsearch`
 vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
 
 -- Diagnostic keymaps
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
+
+vim.keymap.set('n', '-', '<CMD>Oil<CR>', { desc = 'Open parent directory' })
 
 -- Toggle between .c and .h files with same basename
 vim.keymap.set('n', '<leader>ch', function()
@@ -267,6 +187,12 @@ vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode' }
 -- Keybinds to make split navigation easier.
 --  See `:help wincmd` for a list of all window commands
 vim.keymap.set('n', '<C-k>', '<C-w><C-w>', { desc = 'Move focus to the next window' })
+
+vim.keymap.set('n', '<leader>yf', function()
+  local file = vim.fn.expand '%:t' -- filename only
+  local line = vim.fn.line '.'
+  vim.fn.setreg('+', file .. ':' .. line)
+end, { desc = 'Yank filename:line to clipboard' })
 
 -- [[ Basic Autocommands ]]
 --  See `:help lua-guide-autocommands`
@@ -1130,7 +1056,7 @@ require('lazy').setup({
   --  Here are some example plugins that I've included in the Kickstart repository.
   --  Uncomment any of the lines below to enable them (you will need to restart nvim).
   --
-  -- require 'kickstart.plugins.debug',
+  require 'kickstart.plugins.debug',
   -- require 'kickstart.plugins.indent_line',
   -- require 'kickstart.plugins.lint',
   require 'kickstart.plugins.autopairs',
@@ -1169,5 +1095,186 @@ require('lazy').setup({
   },
 })
 
+function Open_Git()
+  -- Open a new horizontal split
+  vim.cmd 'tabnew'
+  -- Create a terminal buffer in the new window
+  vim.cmd 'terminal'
+
+  vim.cmd 'f git'
+  -- The terminal starts in Normal mode, so we need to switch to Terminal mode
+  -- to send input, using 'a' for insert-after.
+  vim.api.nvim_feedkeys('a', 't', false)
+
+  -- Define the Enter key terminal code
+  local enter = vim.api.nvim_replace_termcodes('<CR>', true, true, true)
+  -- Send the command string followed by Enter to execute it
+  vim.api.nvim_chan_send(vim.bo.channel, 'cd ~/wazuh/')
+  vim.api.nvim_chan_send(vim.bo.channel, enter)
+  vim.api.nvim_chan_send(vim.bo.channel, 'git status')
+  vim.api.nvim_chan_send(vim.bo.channel, enter)
+end
+
+vim.api.nvim_create_user_command('Wgit', function()
+  Open_Git()
+end, { nargs = 0, desc = 'Open git on wazuh' })
+
+function Create_New_Manager()
+  -- Open a new horizontal split
+  vim.cmd 'tabnew'
+  -- Create a terminal buffer in the new window
+  vim.cmd 'terminal'
+
+  vim.cmd 'f manager'
+  -- The terminal starts in Normal mode, so we need to switch to Terminal mode
+  -- to send input, using 'a' for insert-after.
+  vim.api.nvim_feedkeys('a', 't', false)
+
+  -- Define the Enter key terminal code
+  local enter = vim.api.nvim_replace_termcodes('<CR>', true, true, true)
+  -- Send the command string followed by Enter to execute it
+  vim.api.nvim_chan_send(vim.bo.channel, 'cd ~/basic_vagrant/')
+  vim.api.nvim_chan_send(vim.bo.channel, enter)
+  vim.api.nvim_chan_send(vim.bo.channel, 'vagrant up ubuntumanager')
+  vim.api.nvim_chan_send(vim.bo.channel, enter)
+  vim.api.nvim_chan_send(vim.bo.channel, 'vagrant ssh ubuntumanager')
+  vim.api.nvim_chan_send(vim.bo.channel, enter)
+  vim.api.nvim_chan_send(vim.bo.channel, 'sudo -E -s')
+  vim.api.nvim_chan_send(vim.bo.channel, enter)
+  vim.api.nvim_chan_send(vim.bo.channel, 'cd /var/ossec')
+  vim.api.nvim_chan_send(vim.bo.channel, enter)
+end
+
+vim.api.nvim_create_user_command('Mgr', function()
+  Create_New_Manager()
+end, { nargs = 0, desc = 'Open a terminal and run a command' })
+
+local agent_count = 0
+function Create_New_Winagent(split_mode)
+  agent_count = agent_count + 1
+
+  -- Default to new tab if no mode specified
+  split_mode = split_mode or 3
+
+  -- Open window based on split mode
+  if split_mode == 0 then
+    -- Current buffer (do nothing, terminal will replace current buffer)
+  elseif split_mode == 1 then
+    vim.cmd 'vsplit'
+  elseif split_mode == 2 then
+    vim.cmd 'split'
+  elseif split_mode == 3 then
+    vim.cmd 'tabnew'
+  end
+
+  -- Create a terminal buffer in the new window
+  vim.cmd 'terminal'
+
+  vim.cmd('f windows' .. agent_count)
+  -- vim.cmd 'f manager'
+  -- The terminal starts in Normal mode, so we need to switch to Terminal mode
+  -- to send input, using 'a' for insert-after.
+  vim.api.nvim_feedkeys('a', 't', false)
+
+  -- Define the Enter key terminal code
+  local enter = vim.api.nvim_replace_termcodes('<CR>', true, true, true)
+  -- Send the command string followed by Enter to execute it
+  vim.api.nvim_chan_send(vim.bo.channel, 'cd ~/basic_vagrant/')
+  vim.api.nvim_chan_send(vim.bo.channel, enter)
+  vim.api.nvim_chan_send(vim.bo.channel, 'vagrant up win2022')
+  vim.api.nvim_chan_send(vim.bo.channel, enter)
+  vim.api.nvim_chan_send(vim.bo.channel, 'vagrant ssh win2022')
+  vim.api.nvim_chan_send(vim.bo.channel, enter)
+  vim.api.nvim_chan_send(vim.bo.channel, 'powershell')
+  vim.api.nvim_chan_send(vim.bo.channel, enter)
+  -- vim.api.nvim_chan_send(vim.bo.channel, 'cd c:\\Program Files(x86)\\ossec-agent')
+  -- vim.api.nvim_chan_send(vim.bo.channel, enter)
+end
+
+vim.api.nvim_create_user_command('Win', function(opts)
+  local split_mode = tonumber(opts.args) or 3
+  Create_New_Winagent(split_mode)
+end, { nargs = '?', desc = 'Open a terminal and run a command (0=current, 1=vsplit, 2=split, 3=tab)' })
+
+function Create_New_Claude(split_mode)
+  -- Default to new tab if no mode specified
+  split_mode = split_mode or 3
+
+  -- Open window based on split mode
+  if split_mode == 0 then
+    -- Current buffer (do nothing, terminal will replace current buffer)
+  elseif split_mode == 1 then
+    vim.cmd 'vsplit'
+  elseif split_mode == 2 then
+    vim.cmd 'split'
+  elseif split_mode == 3 then
+    vim.cmd 'tabnew'
+  end
+
+  -- Create a terminal buffer in the new window
+  vim.cmd 'terminal'
+
+  vim.cmd 'f claude'
+  -- vim.cmd 'f manager'
+  -- The terminal starts in Normal mode, so we need to switch to Terminal mode
+  -- to send input, using 'a' for insert-after.
+  vim.api.nvim_feedkeys('a', 't', false)
+
+  -- Define the Enter key terminal code
+  local enter = vim.api.nvim_replace_termcodes('<CR>', true, true, true)
+  -- Send the command string followed by Enter to execute it
+  vim.api.nvim_chan_send(vim.bo.channel, 'sudo -S -E -s\n')
+  vim.api.nvim_chan_send(vim.bo.channel, '2228\n')
+  vim.api.nvim_chan_send(vim.bo.channel, enter)
+  vim.api.nvim_chan_send(vim.bo.channel, 'claude')
+  vim.api.nvim_chan_send(vim.bo.channel, enter)
+end
+
+vim.api.nvim_create_user_command('Claude', function(opts)
+  local split_mode = tonumber(opts.args) or 3
+  Create_New_Claude(split_mode)
+end, { nargs = '?', desc = 'Open a claude (0=current, 1=vsplit, 2=split, 3=tab)' })
+
+local win_agent_count = 0
+function Create_New_Agent(split_mode)
+  win_agent_count = win_agent_count + 1
+
+  -- Default to new tab if no mode specified
+  split_mode = split_mode or 3
+
+  -- Open window based on split mode
+  if split_mode == 0 then
+    -- Current buffer (do nothing, terminal will replace current buffer)
+  elseif split_mode == 1 then
+    vim.cmd 'vsplit'
+  elseif split_mode == 2 then
+    vim.cmd 'split'
+  elseif split_mode == 3 then
+    vim.cmd 'tabnew'
+  end
+
+  -- Create a terminal buffer in the new window
+  vim.cmd 'terminal'
+
+  vim.cmd('f agent' .. win_agent_count)
+  -- vim.cmd 'f manager'
+  -- The terminal starts in Normal mode, so we need to switch to Terminal mode
+  -- to send input, using 'a' for insert-after.
+  vim.api.nvim_feedkeys('a', 't', false)
+
+  -- Define the Enter key terminal code
+  local enter = vim.api.nvim_replace_termcodes('<CR>', true, true, true)
+  -- Send the command string followed by Enter to execute it
+  vim.api.nvim_chan_send(vim.bo.channel, 'sudo -S -E -s\n')
+  vim.api.nvim_chan_send(vim.bo.channel, '2228\n')
+  vim.api.nvim_chan_send(vim.bo.channel, enter)
+  vim.api.nvim_chan_send(vim.bo.channel, 'cd /var/ossec/')
+  vim.api.nvim_chan_send(vim.bo.channel, enter)
+end
+
+vim.api.nvim_create_user_command('Agt', function(opts)
+  local split_mode = tonumber(opts.args) or 3
+  Create_New_Agent(split_mode)
+end, { nargs = '?', desc = 'Open a terminal and run a command (0=current, 1=vsplit, 2=split, 3=tab)' })
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et
