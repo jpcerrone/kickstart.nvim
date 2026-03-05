@@ -70,20 +70,19 @@ if vim.env.SSH_TTY then
 
   vim.o.clipboard = 'unnamedplus'
 elseif vim.env.TMUX ~= nil then
-  local copy = { 'tmux', 'load-buffer', '-w', '-' }
-  local paste = { 'bash', '-c', 'tmux refresh-client -l && sleep 0.05 && tmux save-buffer -' }
+  local osc52 = require 'vim.ui.clipboard.osc52'
   vim.g.clipboard = {
-    name = 'tmux',
+    name = 'OSC 52',
     copy = {
-      ['+'] = copy,
-      ['*'] = copy,
+      ['+'] = osc52.copy '+',
+      ['*'] = osc52.copy '*',
     },
     paste = {
-      ['+'] = paste,
-      ['*'] = paste,
+      ['+'] = osc52.paste '+',
+      ['*'] = osc52.paste '*',
     },
-    cache_enabled = 0,
   }
+  vim.o.clipboard = 'unnamedplus'
 end
 -- Enable break indent
 vim.o.breakindent = true
@@ -188,11 +187,18 @@ vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode' }
 --  See `:help wincmd` for a list of all window commands
 vim.keymap.set('n', '<C-k>', '<C-w><C-w>', { desc = 'Move focus to the next window' })
 
-vim.keymap.set('n', '<leader>yf', function()
+-- Yank filename and line
+vim.keymap.set('n', '<leader>yg', function()
   local file = vim.fn.expand '%:t' -- filename only
   local line = vim.fn.line '.'
   vim.fn.setreg('+', file .. ':' .. line)
 end, { desc = 'Yank filename:line to clipboard' })
+
+-- Yank full path
+vim.keymap.set('n', '<leader>yf', function()
+  local fullpath = vim.fn.expand '%:p'
+  vim.fn.setreg('+', fullpath)
+end, { desc = 'Yank fullpath to clipboard' })
 
 -- [[ Basic Autocommands ]]
 --  See `:help lua-guide-autocommands`
@@ -281,22 +287,6 @@ require('lazy').setup({
   -- NOTE: Plugins can be added with a link (or for a github repo: 'owner/repo' link).
   'NMAC427/guess-indent.nvim', -- Detect tabstop and shiftwidth automatically
 
-  -- -- GitHub Copilot
-  -- {
-  --   'github/copilot.vim',
-  --   config = function()
-  --     -- Accept suggestion with Tab
-  --     vim.g.copilot_no_tab_map = true
-  --     vim.keymap.set('i', '<C-J>', 'copilot#Accept("\\<CR>")', {
-  --       expr = true,
-  --       replace_keycodes = false,
-  --     })
-  --     -- Next/previous suggestions
-  --     vim.keymap.set('i', '<C-]>', '<Plug>(copilot-next)')
-  --     vim.keymap.set('i', '<C-[>', '<Plug>(copilot-previous)')
-  --   end,
-  -- },
-
   -- NOTE: Plugins can also be added by using a table,
   -- with the first argument being the link and the following
   -- keys can be used to configure plugin behavior/loading/etc.
@@ -342,6 +332,10 @@ require('lazy').setup({
         -- "permissions",
         -- "size",
         -- "mtime",
+      },
+      view_options = {
+        -- Show files and directories that start with "."
+        show_hidden = true,
       },
     },
     -- Optional dependencies
@@ -939,6 +933,9 @@ require('lazy').setup({
 
       sources = {
         default = { 'lsp', 'path', 'snippets', 'lazydev' },
+        per_filetype = {
+          markdown = { 'lsp', 'path', 'lazydev' },
+        },
         providers = {
           lazydev = { module = 'lazydev.integrations.blink', score_offset = 100 },
         },
@@ -1057,10 +1054,8 @@ require('lazy').setup({
   --  Uncomment any of the lines below to enable them (you will need to restart nvim).
   --
   require 'kickstart.plugins.debug',
-  -- require 'kickstart.plugins.indent_line',
   -- require 'kickstart.plugins.lint',
   require 'kickstart.plugins.autopairs',
-  -- require 'kickstart.plugins.neo-tree',
   require 'kickstart.plugins.gitsigns', -- adds gitsigns recommend keymaps
 
   -- NOTE: The import below can automatically add your own plugins, configuration, etc from `lua/custom/plugins/*.lua`
@@ -1095,186 +1090,6 @@ require('lazy').setup({
   },
 })
 
-function Open_Git()
-  -- Open a new horizontal split
-  vim.cmd 'tabnew'
-  -- Create a terminal buffer in the new window
-  vim.cmd 'terminal'
-
-  vim.cmd 'f git'
-  -- The terminal starts in Normal mode, so we need to switch to Terminal mode
-  -- to send input, using 'a' for insert-after.
-  vim.api.nvim_feedkeys('a', 't', false)
-
-  -- Define the Enter key terminal code
-  local enter = vim.api.nvim_replace_termcodes('<CR>', true, true, true)
-  -- Send the command string followed by Enter to execute it
-  vim.api.nvim_chan_send(vim.bo.channel, 'cd ~/wazuh/')
-  vim.api.nvim_chan_send(vim.bo.channel, enter)
-  vim.api.nvim_chan_send(vim.bo.channel, 'git status')
-  vim.api.nvim_chan_send(vim.bo.channel, enter)
-end
-
-vim.api.nvim_create_user_command('Wgit', function()
-  Open_Git()
-end, { nargs = 0, desc = 'Open git on wazuh' })
-
-function Create_New_Manager()
-  -- Open a new horizontal split
-  vim.cmd 'tabnew'
-  -- Create a terminal buffer in the new window
-  vim.cmd 'terminal'
-
-  vim.cmd 'f manager'
-  -- The terminal starts in Normal mode, so we need to switch to Terminal mode
-  -- to send input, using 'a' for insert-after.
-  vim.api.nvim_feedkeys('a', 't', false)
-
-  -- Define the Enter key terminal code
-  local enter = vim.api.nvim_replace_termcodes('<CR>', true, true, true)
-  -- Send the command string followed by Enter to execute it
-  vim.api.nvim_chan_send(vim.bo.channel, 'cd ~/basic_vagrant/')
-  vim.api.nvim_chan_send(vim.bo.channel, enter)
-  vim.api.nvim_chan_send(vim.bo.channel, 'vagrant up ubuntumanager')
-  vim.api.nvim_chan_send(vim.bo.channel, enter)
-  vim.api.nvim_chan_send(vim.bo.channel, 'vagrant ssh ubuntumanager')
-  vim.api.nvim_chan_send(vim.bo.channel, enter)
-  vim.api.nvim_chan_send(vim.bo.channel, 'sudo -E -s')
-  vim.api.nvim_chan_send(vim.bo.channel, enter)
-  vim.api.nvim_chan_send(vim.bo.channel, 'cd /var/ossec')
-  vim.api.nvim_chan_send(vim.bo.channel, enter)
-end
-
-vim.api.nvim_create_user_command('Mgr', function()
-  Create_New_Manager()
-end, { nargs = 0, desc = 'Open a terminal and run a command' })
-
-local agent_count = 0
-function Create_New_Winagent(split_mode)
-  agent_count = agent_count + 1
-
-  -- Default to new tab if no mode specified
-  split_mode = split_mode or 3
-
-  -- Open window based on split mode
-  if split_mode == 0 then
-    -- Current buffer (do nothing, terminal will replace current buffer)
-  elseif split_mode == 1 then
-    vim.cmd 'vsplit'
-  elseif split_mode == 2 then
-    vim.cmd 'split'
-  elseif split_mode == 3 then
-    vim.cmd 'tabnew'
-  end
-
-  -- Create a terminal buffer in the new window
-  vim.cmd 'terminal'
-
-  vim.cmd('f windows' .. agent_count)
-  -- vim.cmd 'f manager'
-  -- The terminal starts in Normal mode, so we need to switch to Terminal mode
-  -- to send input, using 'a' for insert-after.
-  vim.api.nvim_feedkeys('a', 't', false)
-
-  -- Define the Enter key terminal code
-  local enter = vim.api.nvim_replace_termcodes('<CR>', true, true, true)
-  -- Send the command string followed by Enter to execute it
-  vim.api.nvim_chan_send(vim.bo.channel, 'cd ~/basic_vagrant/')
-  vim.api.nvim_chan_send(vim.bo.channel, enter)
-  vim.api.nvim_chan_send(vim.bo.channel, 'vagrant up win2022')
-  vim.api.nvim_chan_send(vim.bo.channel, enter)
-  vim.api.nvim_chan_send(vim.bo.channel, 'vagrant ssh win2022')
-  vim.api.nvim_chan_send(vim.bo.channel, enter)
-  vim.api.nvim_chan_send(vim.bo.channel, 'powershell')
-  vim.api.nvim_chan_send(vim.bo.channel, enter)
-  -- vim.api.nvim_chan_send(vim.bo.channel, 'cd c:\\Program Files(x86)\\ossec-agent')
-  -- vim.api.nvim_chan_send(vim.bo.channel, enter)
-end
-
-vim.api.nvim_create_user_command('Win', function(opts)
-  local split_mode = tonumber(opts.args) or 3
-  Create_New_Winagent(split_mode)
-end, { nargs = '?', desc = 'Open a terminal and run a command (0=current, 1=vsplit, 2=split, 3=tab)' })
-
-function Create_New_Claude(split_mode)
-  -- Default to new tab if no mode specified
-  split_mode = split_mode or 3
-
-  -- Open window based on split mode
-  if split_mode == 0 then
-    -- Current buffer (do nothing, terminal will replace current buffer)
-  elseif split_mode == 1 then
-    vim.cmd 'vsplit'
-  elseif split_mode == 2 then
-    vim.cmd 'split'
-  elseif split_mode == 3 then
-    vim.cmd 'tabnew'
-  end
-
-  -- Create a terminal buffer in the new window
-  vim.cmd 'terminal'
-
-  vim.cmd 'f claude'
-  -- vim.cmd 'f manager'
-  -- The terminal starts in Normal mode, so we need to switch to Terminal mode
-  -- to send input, using 'a' for insert-after.
-  vim.api.nvim_feedkeys('a', 't', false)
-
-  -- Define the Enter key terminal code
-  local enter = vim.api.nvim_replace_termcodes('<CR>', true, true, true)
-  -- Send the command string followed by Enter to execute it
-  vim.api.nvim_chan_send(vim.bo.channel, 'sudo -S -E -s\n')
-  vim.api.nvim_chan_send(vim.bo.channel, '2228\n')
-  vim.api.nvim_chan_send(vim.bo.channel, enter)
-  vim.api.nvim_chan_send(vim.bo.channel, 'claude')
-  vim.api.nvim_chan_send(vim.bo.channel, enter)
-end
-
-vim.api.nvim_create_user_command('Claude', function(opts)
-  local split_mode = tonumber(opts.args) or 3
-  Create_New_Claude(split_mode)
-end, { nargs = '?', desc = 'Open a claude (0=current, 1=vsplit, 2=split, 3=tab)' })
-
-local win_agent_count = 0
-function Create_New_Agent(split_mode)
-  win_agent_count = win_agent_count + 1
-
-  -- Default to new tab if no mode specified
-  split_mode = split_mode or 3
-
-  -- Open window based on split mode
-  if split_mode == 0 then
-    -- Current buffer (do nothing, terminal will replace current buffer)
-  elseif split_mode == 1 then
-    vim.cmd 'vsplit'
-  elseif split_mode == 2 then
-    vim.cmd 'split'
-  elseif split_mode == 3 then
-    vim.cmd 'tabnew'
-  end
-
-  -- Create a terminal buffer in the new window
-  vim.cmd 'terminal'
-
-  vim.cmd('f agent' .. win_agent_count)
-  -- vim.cmd 'f manager'
-  -- The terminal starts in Normal mode, so we need to switch to Terminal mode
-  -- to send input, using 'a' for insert-after.
-  vim.api.nvim_feedkeys('a', 't', false)
-
-  -- Define the Enter key terminal code
-  local enter = vim.api.nvim_replace_termcodes('<CR>', true, true, true)
-  -- Send the command string followed by Enter to execute it
-  vim.api.nvim_chan_send(vim.bo.channel, 'sudo -S -E -s\n')
-  vim.api.nvim_chan_send(vim.bo.channel, '2228\n')
-  vim.api.nvim_chan_send(vim.bo.channel, enter)
-  vim.api.nvim_chan_send(vim.bo.channel, 'cd /var/ossec/')
-  vim.api.nvim_chan_send(vim.bo.channel, enter)
-end
-
-vim.api.nvim_create_user_command('Agt', function(opts)
-  local split_mode = tonumber(opts.args) or 3
-  Create_New_Agent(split_mode)
-end, { nargs = '?', desc = 'Open a terminal and run a command (0=current, 1=vsplit, 2=split, 3=tab)' })
+require 'custom.terminal.terminal'
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et
